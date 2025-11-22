@@ -1,3 +1,4 @@
+// routes/gallery.ts
 import { Router, Request, Response } from "express";
 import multer from "multer";
 import { v2 as cloudinary, UploadApiResponse } from "cloudinary";
@@ -24,7 +25,6 @@ router.post(
   upload.single("image"),
   async (req: Request, res: Response) => {
     try {
-      // Type guard for req.file
       if (!req.file)
         return res.status(400).json({ message: "No file uploaded" });
 
@@ -44,6 +44,7 @@ router.post(
         title: req.body.title || "Untitled",
         description: req.body.description || "",
         imageUrl: result.secure_url,
+        public_id: result.public_id, // Save public_id
       });
 
       await img.save();
@@ -66,6 +67,26 @@ router.get("/", async (_req: Request, res: Response) => {
   } catch (err: any) {
     console.error("Gallery fetch error:", err);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+// DELETE /gallery/:id
+router.delete("/:id", protect, async (req: Request, res: Response) => {
+  try {
+    const gallery = await Gallery.findById(req.params.id);
+    if (!gallery)
+      return res.status(404).json({ message: "Gallery item not found" });
+
+    // Delete from Cloudinary
+    await cloudinary.uploader.destroy(gallery.public_id);
+
+    // Delete from database
+    await gallery.deleteOne();
+
+    return res.status(200).json({ message: "Deleted successfully" });
+  } catch (err: any) {
+    console.error("Gallery delete error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 });
 
