@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import Admin from "../models/Admin";
-import bcrypt from "bcryptjs";
+import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 if (!process.env.JWT_SECRET) {
@@ -15,7 +15,14 @@ export const login = async (req: Request, res: Response) => {
     if (!admin) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
+    console.log("Stored hash:", admin.password);
+    console.log(
+      "Compare result:",
+      await bcrypt.compare("admin123", admin.password)
+    );
     const isMatch = await bcrypt.compare(password, admin.password);
+    console.log("Password match:", isMatch);
+
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid credentials" });
     }

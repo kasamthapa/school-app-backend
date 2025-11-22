@@ -1,4 +1,4 @@
-import { join } from "path";
+// src/seedAdmin.ts
 import { connectDB } from "./config/db";
 import Admin from "./models/Admin";
 import dotenv from "dotenv";
@@ -8,19 +8,19 @@ connectDB();
 
 const createAdmin = async () => {
   try {
-    const existing = await Admin.findOne({ username: "admin" });
-    if (existing) {
-      console.log("Admin user already exists!");
-      process.exit(0);
-    }
+    // Remove any old admin with username 'admin'
+    await Admin.deleteMany({ username: "admin" });
+
+    // Create new admin — password will be hashed automatically by pre-save hook
     await Admin.create({
       username: "admin",
-      password: "admin123",
+      password: "admin123", // plain text here
     });
 
-    console.log("Admin data created successfully");
+    console.log("✅ Admin created successfully with hashed password");
+    process.exit(0);
   } catch (e: any) {
-    console.log("Error creating admin user", e.message);
+    console.error("Error creating admin:", e.message);
     process.exit(1);
   }
 };
