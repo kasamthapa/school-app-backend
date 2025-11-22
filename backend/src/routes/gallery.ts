@@ -4,6 +4,7 @@ import multer from "multer";
 import { v2 as cloudinary, UploadApiResponse } from "cloudinary";
 import { protect } from "../middleware/auth";
 import Gallery from "../models/Gallery";
+import mongoose from "mongoose";
 
 const router = Router();
 
@@ -73,12 +74,25 @@ router.get("/", async (_req: Request, res: Response) => {
 // DELETE /gallery/:id
 router.delete("/:id", protect, async (req: Request, res: Response) => {
   try {
-    const gallery = await Gallery.findById(req.params.id);
+    const { id } = req.params;
+
+    // Check for valid MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id))
+      return res.status(400).json({ message: "Invalid gallery ID" });
+
+    const gallery = await Gallery.findById(id);
     if (!gallery)
       return res.status(404).json({ message: "Gallery item not found" });
 
-    // Delete from Cloudinary
-    await cloudinary.uploader.destroy(gallery.public_id);
+    // Delete from Cloudinary safely
+    if (gallery.public_id) {
+      try {
+        await cloudinary.uploader.destroy(gallery.public_id);
+      } catch (err) {
+        console.error("Cloudinary deletion error:", err);
+        // continue to delete from DB anyway
+      }
+    }
 
     // Delete from database
     await gallery.deleteOne();
