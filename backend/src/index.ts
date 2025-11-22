@@ -7,6 +7,7 @@ import authRouter from "./routes/auth";
 import noticeRouter from "./routes/notices";
 import galleryRouter from "./routes/gallery";
 import contactRouter from "./routes/contact";
+import path from "path";
 import meRouter from "./routes/me";
 connectDB();
 
@@ -20,7 +21,7 @@ app.use(
 );
 app.use(express.json());
 app.use(require("cookie-parser")());
-app.use("/uploads", express.static("uploads"));
+app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
 app.use("/api/auth", authRouter);
 app.use("/api/notices", noticeRouter);
