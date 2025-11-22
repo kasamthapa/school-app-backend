@@ -1,59 +1,70 @@
-// backend/routes/gallery.ts
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import multer from "multer";
-import path from "path";
+import { v2 as cloudinary, UploadApiResponse } from "cloudinary";
 import { protect } from "../middleware/auth";
 import Gallery from "../models/Gallery";
 
 const router = Router();
 
-// Multer storage config
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    // Save files in 'uploads' folder at project root
-    cb(null, path.join(__dirname, "..", "..", "uploads"));
-  },
-  filename: (req, file, cb) => {
-    const unique = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, "image-" + unique + path.extname(file.originalname));
-  },
-});
-
+// Multer memory storage
+const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// Upload image route
-router.post("/", protect, upload.single("image"), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
-
-    // Use BACKEND_URL from env or fallback to request host
-    const BASE_URL =
-      process.env.BACKEND_URL || `${req.protocol}://${req.get("host")}`;
-
-    const imageUrl = `${BASE_URL}/uploads/${req.file.filename}`;
-
-    const img = new Gallery({
-      title: req.body.title || "Untitled",
-      description: req.body.description || "",
-      imageUrl,
-    });
-
-    await img.save();
-
-    res.json({ message: "Uploaded successfully", image: img });
-  } catch (error: any) {
-    console.error("Upload error:", error.message);
-    res.status(500).json({ message: "Server error" });
-  }
+// Cloudinary config
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_KEY,
+  api_secret: process.env.CLOUDINARY_SECRET,
 });
 
-// Get all gallery images
-router.get("/", async (_req, res) => {
+// POST /gallery
+router.post(
+  "/",
+  protect,
+  upload.single("image"),
+  async (req: Request, res: Response) => {
+    try {
+      // Type guard for req.file
+      if (!req.file)
+        return res.status(400).json({ message: "No file uploaded" });
+
+      // Upload to Cloudinary
+      const result: UploadApiResponse = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          { folder: "school-gallery" },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result as UploadApiResponse);
+          }
+        );
+        stream.end(req.file!.buffer);
+      });
+
+      const img = new Gallery({
+        title: req.body.title || "Untitled",
+        description: req.body.description || "",
+        imageUrl: result.secure_url,
+      });
+
+      await img.save();
+
+      return res
+        .status(201)
+        .json({ message: "Uploaded successfully", image: img });
+    } catch (err: any) {
+      console.error("Cloudinary upload error:", err);
+      return res.status(500).json({ message: "Server error" });
+    }
+  }
+);
+
+// GET /gallery
+router.get("/", async (_req: Request, res: Response) => {
   try {
     const images = await Gallery.find().sort({ createdAt: -1 });
     res.json(images);
-  } catch (error: any) {
-    console.error("Fetch gallery error:", error.message);
+  } catch (err: any) {
+    console.error("Gallery fetch error:", err);
     res.status(500).json({ message: "Server error" });
   }
 });
