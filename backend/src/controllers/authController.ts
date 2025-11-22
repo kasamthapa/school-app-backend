@@ -32,7 +32,7 @@ export const login = async (req: Request, res: Response) => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "none",
       expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
@@ -47,7 +47,7 @@ export const logout = async (_req: Request, res: Response) => {
   res.cookie("token", "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: "none",
     expires: new Date(0),
   });
   return res.status(200).json({ message: "Logged Out successfully" });
